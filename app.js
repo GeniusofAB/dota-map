@@ -169,11 +169,42 @@
     $('copy-status').textContent = copied ? 'Скопировано' : 'Выдели и скопируй pos выше';
     clearTimeout(copyTimer); copyTimer = setTimeout(() => { $('copy-status').textContent = ''; },2500);
   });
-  const mapImage = $('map-image');
-  const loaded = () => { $('map-status').hidden = true; };
-  mapImage.addEventListener('load',loaded);
-  mapImage.addEventListener('error',() => { $('map-status').textContent = 'Не удалось загрузить карту. Обнови страницу.'; });
-  if (mapImage.complete && mapImage.naturalWidth) loaded();
+  // Six vertical strips, ordered left to right. Keep the original coordinate
+  // bounds: 6 * 2901 = 17406 source pixels, displayed across 17408 map units.
+  const mapParts = Array.from({ length: 6 }, (_, index) => `assets/${index + 1}.jpg`);
+  const partStates = mapParts.map(() => 'loading');
+  const mapStatus = $('map-status');
+  world.replaceChildren();
+  world.style.display = 'grid';
+  world.style.gridTemplateColumns = 'repeat(6, minmax(0, 1fr))';
+  world.style.gridTemplateRows = '100%';
+  world.style.gap = '0';
+  function updateMapStatus() {
+    const failed = mapParts.filter((_, index) => partStates[index] === 'error');
+    const loadedCount = partStates.filter(status => status === 'loaded').length;
+    mapStatus.hidden = loadedCount === mapParts.length;
+    mapStatus.textContent = failed.length
+      ? `Не удалось загрузить: ${failed.join(', ')}. Проверь файлы и обнови страницу.`
+      : `Загрузка карты… ${loadedCount}/${mapParts.length}`;
+  }
+  updateMapStatus();
+  mapParts.forEach((src, index) => {
+    const image = document.createElement('img');
+    if (index === 0) image.id = 'map-image';
+    image.alt = `Карта мира Dota 2 — часть ${index + 1} из ${mapParts.length}`;
+    image.draggable = false;
+    image.width = 2901; image.height = MAP.height;
+    image.style.minWidth = '0';
+    image.style.width = '100%'; image.style.height = '100%';
+    image.addEventListener('load', () => {
+      partStates[index] = 'loaded'; updateMapStatus();
+    });
+    image.addEventListener('error', () => {
+      partStates[index] = 'error'; updateMapStatus();
+    });
+    world.append(image);
+    image.src = src;
+  });
   let lastSize = size();
   const observer = new ResizeObserver(() => {
     const previousFit = state.fit, nextSize = size();
