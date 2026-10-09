@@ -10,6 +10,36 @@
   const state = { scale: 1, fit: 1, tx: 0, ty: 0, selected: null };
   const pointers = new Map();
   let gesture = null, copyTimer;
+  let tooltipPin = null;
+  const tooltip = document.createElement('div');
+  tooltip.className = 'marker-tooltip';
+  tooltip.setAttribute('role', 'tooltip');
+  tooltip.hidden = true;
+  viewport.append(tooltip);
+  function hideTooltip() {
+    tooltipPin = null;
+    tooltip.hidden = true;
+  }
+  function placeTooltip() {
+    if (!tooltipPin || $('markers').hidden) { tooltip.hidden = true; return; }
+    const x = state.tx + tooltipPin.point.x * state.scale;
+    const y = state.ty + tooltipPin.point.y * state.scale;
+    if (x < 0 || y < 0 || x > viewport.clientWidth || y > viewport.clientHeight) {
+      tooltip.hidden = true; return;
+    }
+    tooltip.hidden = false;
+    const width = tooltip.offsetWidth, height = tooltip.offsetHeight;
+    const left = Math.max(8, Math.min(viewport.clientWidth - width - 8, x - width / 2));
+    const top = y + 20 + height <= viewport.clientHeight - 8 ? y + 20 : Math.max(8, y - height - 20);
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+  }
+  function showTooltip(pin) {
+    if (pointers.size) return;
+    tooltipPin = pin;
+    tooltip.textContent = pin.hero.name;
+    placeTooltip();
+  }
   const heroes = (window.HEROES || []).filter(h => !h.hidden).map(h => {
     const [lat, lng] = h.pos;
     return { ...h, lat, lng };
@@ -25,7 +55,15 @@
       if (event.detail === 0) select(toPixel(hero.lat, hero.lng), hero);
     });
     $('markers').append(button);
-    return { hero, button, point: toPixel(hero.lat, hero.lng) };
+    const pin = { hero, button, point: toPixel(hero.lat, hero.lng) };
+    button.addEventListener('pointerenter', event => {
+      if (event.pointerType !== 'touch') showTooltip(pin);
+    });
+    button.addEventListener('pointerleave', () => { if (tooltipPin === pin) hideTooltip(); });
+    button.addEventListener('focus', () => showTooltip(pin));
+    button.addEventListener('blur', () => { if (tooltipPin === pin) hideTooltip(); });
+    button.addEventListener('keydown', event => { if (event.key === 'Escape') hideTooltip(); });
+    return pin;
   });
   const size = () => ({ w: viewport.clientWidth, h: viewport.clientHeight });
   function clamp() {
@@ -46,6 +84,7 @@
       $('selection').style.left = `${state.tx + state.selected.x * state.scale}px`;
       $('selection').style.top = `${state.ty + state.selected.y * state.scale}px`;
     }
+    placeTooltip();
     $('zoom-out').disabled = state.scale <= state.fit * 1.001;
     $('zoom-in').disabled = state.scale >= state.fit * 12 / 1.001;
   }
@@ -87,6 +126,7 @@
     const show = button.getAttribute('aria-pressed') !== 'true';
     button.setAttribute('aria-pressed', String(show));
     $('markers').hidden = !show;
+    if (!show) hideTooltip();
   });
   $('zoom-in').addEventListener('click', () => zoom(1.5));
   $('zoom-out').addEventListener('click', () => zoom(1 / 1.5));
@@ -99,6 +139,7 @@
   }, { passive: false });
   viewport.addEventListener('pointerdown', event => {
     if (event.button !== 0) return;
+    hideTooltip();
     const p = local(event); pointers.set(event.pointerId, p);
     viewport.setPointerCapture(event.pointerId);
     if (pointers.size === 1) {

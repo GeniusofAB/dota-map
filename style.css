@@ -95,3 +95,20 @@ code { flex: 1; min-width: 0; color: var(--md-sys-color-primary); font: 14px/1.8
   *, *::before, *::after { transition: none !important; }
   .spinner { animation: none; }
 }
+
+.marker-tooltip {
+  position: absolute;
+  z-index: 3;
+  width: max-content;
+  max-width: calc(100% - 16px);
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  box-shadow: 0 2px 8px #0005;
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+.map-controls { z-index: 4; }
