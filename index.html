@@ -31,6 +31,14 @@
       </div>
     </section>
     <aside class="details" aria-label="Выбранный герой и координаты">
+      <div id="hero-search" class="hero-search" role="search">
+        <div class="search-field">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+          <input id="hero-search-input" type="search" placeholder="Поиск героя" aria-label="Поиск героя" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="hero-search-results" autocomplete="off" spellcheck="false">
+        </div>
+        <ul id="hero-search-results" class="search-results" role="listbox" aria-label="Найденные герои" hidden></ul>
+        <span id="hero-search-status" class="sr-only" role="status"></span>
+      </div>
       <div id="empty-state" class="empty-state" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><path d="M12 2v5m0 10v5M2 12h5m10 0h5"/><circle cx="12" cy="12" r="1"/></svg></div>
       <div id="point-details" hidden aria-live="polite">
         <h1 id="point-name" hidden></h1>

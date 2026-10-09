@@ -66,6 +66,103 @@
     return pin;
   });
   const size = () => ({ w: viewport.clientWidth, h: viewport.clientHeight });
+  const search = $('hero-search');
+  const searchInput = $('hero-search-input');
+  const searchResults = $('hero-search-results');
+  const searchStatus = $('hero-search-status');
+  const normalizeName = name => name.toLocaleLowerCase().replace(/[\s'’_-]+/g, '');
+  let searchMatches = [], activeSearchIndex = 0;
+  function closeSearch() {
+    searchResults.hidden = true;
+    searchInput.setAttribute('aria-expanded', 'false');
+    searchInput.removeAttribute('aria-activedescendant');
+  }
+  function highlightSearchResult() {
+    [...searchResults.children].forEach((option, index) => {
+      option.setAttribute('aria-selected', String(index === activeSearchIndex));
+    });
+    const option = searchResults.children[activeSearchIndex];
+    if (searchMatches.length && option) {
+      searchInput.setAttribute('aria-activedescendant', option.id);
+      option.scrollIntoView({ block: 'nearest' });
+    } else searchInput.removeAttribute('aria-activedescendant');
+  }
+  function revealHero(pin) {
+    hideTooltip();
+    const { w, h } = size();
+    const edgeX = Math.max(1, Math.min(pin.point.x, MAP.width - pin.point.x));
+    const edgeY = Math.max(1, Math.min(pin.point.y, MAP.height - pin.point.y));
+    const centeredScale = Math.max(w / (2 * edgeX), h / (2 * edgeY));
+    state.scale = Math.min(state.fit * 12, Math.max(state.scale, state.fit * 6, centeredScale));
+    state.tx = w / 2 - pin.point.x * state.scale;
+    state.ty = h / 2 - pin.point.y * state.scale;
+    $('markers').hidden = false;
+    $('show-heroes').setAttribute('aria-pressed', 'true');
+    select(pin.point, pin.hero);
+    showTooltip(pin);
+    searchStatus.textContent = `Найден: ${pin.hero.name}`;
+  }
+  function chooseSearchResult(pin) {
+    searchInput.value = pin.hero.name;
+    closeSearch();
+    revealHero(pin);
+  }
+  function renderSearch() {
+    const query = normalizeName(searchInput.value.trim());
+    searchResults.replaceChildren();
+    if (!query) { searchMatches = []; searchStatus.textContent = ''; closeSearch(); return; }
+    const rank = pin => {
+      const name = normalizeName(pin.hero.name);
+      return name === query ? 0 : name.startsWith(query) ? 1 : 2;
+    };
+    searchMatches = pins.filter(pin => normalizeName(pin.hero.name).includes(query))
+      .sort((a, b) => rank(a) - rank(b) || a.hero.name.localeCompare(b.hero.name)).slice(0, 10);
+    activeSearchIndex = Math.min(activeSearchIndex, Math.max(0, searchMatches.length - 1));
+    searchResults.hidden = false;
+    searchInput.setAttribute('aria-expanded', 'true');
+    searchStatus.textContent = searchMatches.length ? `Найдено: ${searchMatches.length}` : 'Герой не найден';
+    if (!searchMatches.length) {
+      const empty = document.createElement('li');
+      empty.className = 'search-empty'; empty.textContent = 'Не найдено';
+      empty.setAttribute('role', 'presentation'); searchResults.append(empty);
+    }
+    searchMatches.forEach((pin, index) => {
+      const option = document.createElement('li');
+      option.id = `hero-search-option-${index}`;
+      option.textContent = pin.hero.name;
+      option.setAttribute('role', 'option');
+      option.addEventListener('click', () => chooseSearchResult(pin));
+      searchResults.append(option);
+    });
+    highlightSearchResult();
+  }
+  searchInput.addEventListener('input', () => {
+    activeSearchIndex = 0;
+    renderSearch();
+    const exact = searchMatches.find(pin => normalizeName(pin.hero.name) === normalizeName(searchInput.value.trim()));
+    if (exact) { closeSearch(); revealHero(exact); }
+  });
+  searchInput.addEventListener('focus', renderSearch);
+  searchInput.addEventListener('keydown', event => {
+    if (event.isComposing) return;
+    if (event.key === 'Escape' || event.key === 'Tab') {
+      closeSearch();
+      if (event.key === 'Escape') event.preventDefault();
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (searchResults.hidden) renderSearch();
+      else if (searchMatches.length) {
+        activeSearchIndex = (activeSearchIndex + (event.key === 'ArrowDown' ? 1 : -1) + searchMatches.length) % searchMatches.length;
+        highlightSearchResult();
+      }
+    } else if (event.key === 'Enter' && searchMatches.length) {
+      event.preventDefault(); chooseSearchResult(searchMatches[activeSearchIndex]);
+    }
+  });
+  searchResults.addEventListener('mousedown', event => event.preventDefault());
+  document.addEventListener('pointerdown', event => { if (!search.contains(event.target)) closeSearch(); });
   function clamp() {
     const { w, h } = size();
     const mw = MAP.width * state.scale, mh = MAP.height * state.scale;

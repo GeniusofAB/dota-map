@@ -112,3 +112,24 @@ code { flex: 1; min-width: 0; color: var(--md-sys-color-primary); font: 14px/1.8
   pointer-events: none;
 }
 .map-controls { z-index: 4; }
+
+.details { display: flex; flex-direction: column; }
+.empty-state { flex: 1; height: auto; min-height: 64px; }
+#point-details { margin-top: 24px; }
+.hero-search { position: relative; flex-shrink: 0; z-index: 5; }
+.search-field { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 16px; border-radius: 28px; background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); }
+.search-field:focus-within { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
+.search-field svg { width: 22px; height: 22px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.search-field input { min-width: 0; width: 100%; padding: 14px 0; border: 0; outline: 0; background: transparent; color: var(--md-sys-color-on-surface); font: inherit; font-size: 16px; }
+.search-field input::placeholder { color: var(--md-sys-color-on-surface-variant); opacity: 1; }
+.search-results { position: absolute; left: 0; right: 0; top: calc(100% + 8px); max-height: min(400px, 45dvh); overflow: auto; margin: 0; padding: 8px; list-style: none; border-radius: 20px; background: var(--md-sys-color-surface-container-high); box-shadow: 0 4px 16px #0005; }
+.search-results li { min-height: 48px; display: flex; align-items: center; padding: 10px 12px; border-radius: 12px; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; cursor: pointer; }
+.search-results li:hover, .search-results li[aria-selected="true"] { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.search-results .search-empty { cursor: default; color: var(--md-sys-color-on-surface-variant); }
+.search-results .search-empty:hover { background: transparent; }
+@media (max-width: 520px) {
+  .search-field { padding: 0 12px; gap: 8px; }
+  .search-field svg { width: 18px; height: 18px; }
+  .search-results { padding: 4px; }
+  .search-results li { padding: 10px 8px; }
+}
