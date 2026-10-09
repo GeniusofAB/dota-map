@@ -10,16 +10,15 @@
   const state = { scale: 1, fit: 1, tx: 0, ty: 0, selected: null };
   const pointers = new Map();
   let gesture = null, copyTimer;
-  const heroes = (window.HEROES || []).filter(h => !h.hidden);
+  const heroes = (window.HEROES || []).filter(h => !h.hidden).map(h => {
+    const [lat, lng] = h.pos;
+    return { ...h, lat, lng };
+  });
   const pins = heroes.map(hero => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'marker' + (hero.name === 'Roshan' ? ' roshan' : '');
     button.setAttribute('aria-label', `${hero.name}: [${hero.lat}, ${hero.lng}]`);
-    button.style.setProperty('--pin-color', hero.color);
-    const label = document.createElement('span');
-    label.className = 'marker-label'; label.textContent = hero.name;
-    button.append(label);
     button.addEventListener('click', event => {
       event.stopPropagation();
       // Pointer taps are handled by pointerup, after distinguishing taps from drags.
@@ -28,7 +27,6 @@
     $('markers').append(button);
     return { hero, button, point: toPixel(hero.lat, hero.lng) };
   });
-  $('hero-count').textContent = heroes.length;
   const size = () => ({ w: viewport.clientWidth, h: viewport.clientHeight });
   function clamp() {
     const { w, h } = size();
@@ -48,7 +46,6 @@
       $('selection').style.left = `${state.tx + state.selected.x * state.scale}px`;
       $('selection').style.top = `${state.ty + state.selected.y * state.scale}px`;
     }
-    $('zoom-label').textContent = `${(state.scale / state.fit).toFixed(1)}×`;
     $('zoom-out').disabled = state.scale <= state.fit * 1.001;
     $('zoom-in').disabled = state.scale >= state.fit * 12 / 1.001;
   }
@@ -73,21 +70,29 @@
     const pos = hero ? { lat: hero.lat, lng: hero.lng } : toPosition(point.x, point.y);
     state.selected = { ...point, ...pos, hero };
     $('empty-state').hidden = true; $('point-details').hidden = false; $('selection').hidden = false;
-    $('point-name').textContent = hero ? hero.name : 'Точка на карте';
+    $('point-name').textContent = hero ? hero.name : '';
+    $('point-name').hidden = !hero;
     const fmt = value => (Math.abs(value) < 0.0000005 ? 0 : value).toFixed(6);
     $('pos-value').textContent = `[${fmt(pos.lat)}, ${fmt(pos.lng)}]`;
     $('lat-value').textContent = fmt(pos.lat); $('lng-value').textContent = fmt(pos.lng);
     $('x-value').textContent = point.x.toFixed(2); $('y-value').textContent = point.y.toFixed(2);
-    $('copy-status').textContent = ''; render();
+    clearTimeout(copyTimer);
+    $('copy-status').textContent = '';
+    $('copy-pos').classList.remove('copied');
+    $('copy-pos').setAttribute('aria-label', 'Копировать координаты');
+    render();
   }
-  $('show-heroes').addEventListener('change', event => {
-    $('markers').hidden = !event.target.checked;
+  $('show-heroes').addEventListener('click', event => {
+    const button = event.currentTarget;
+    const show = button.getAttribute('aria-pressed') !== 'true';
+    button.setAttribute('aria-pressed', String(show));
+    $('markers').hidden = !show;
   });
   $('zoom-in').addEventListener('click', () => zoom(1.5));
   $('zoom-out').addEventListener('click', () => zoom(1 / 1.5));
   $('fit-map').addEventListener('click', fitMap);
   // Keep navigation controls out of the map's pan/tap gesture handling.
-  document.querySelector('.zoom-controls').addEventListener('pointerdown', e => e.stopPropagation());
+  document.querySelector('.map-controls').addEventListener('pointerdown', e => e.stopPropagation());
   viewport.addEventListener('wheel', event => {
     event.preventDefault(); const p = local(event);
     zoom(Math.exp(-Math.max(-100, Math.min(100, event.deltaY)) * 0.003), p.x, p.y);
@@ -166,8 +171,15 @@
       input.style.cssText = 'position:fixed;left:-9999px'; document.body.append(input);
       input.select(); copied = document.execCommand('copy'); input.remove(); $('copy-pos').focus();
     }
-    $('copy-status').textContent = copied ? 'Скопировано' : 'Выдели и скопируй pos выше';
-    clearTimeout(copyTimer); copyTimer = setTimeout(() => { $('copy-status').textContent = ''; },2500);
+    $('copy-status').textContent = copied ? 'Скопировано' : 'Выдели и скопируй координаты';
+    $('copy-pos').classList.toggle('copied', copied);
+    $('copy-pos').setAttribute('aria-label', copied ? 'Координаты скопированы' : 'Копировать координаты');
+    clearTimeout(copyTimer);
+    copyTimer = setTimeout(() => {
+      $('copy-status').textContent = '';
+      $('copy-pos').classList.remove('copied');
+      $('copy-pos').setAttribute('aria-label', 'Копировать координаты');
+    },2500);
   });
   // Six vertical strips, ordered left to right. Keep the original coordinate
   // bounds: 6 * 2901 = 17406 source pixels, displayed across 17408 map units.
@@ -182,10 +194,11 @@
   function updateMapStatus() {
     const failed = mapParts.filter((_, index) => partStates[index] === 'error');
     const loadedCount = partStates.filter(status => status === 'loaded').length;
-    mapStatus.hidden = loadedCount === mapParts.length;
-    mapStatus.textContent = failed.length
-      ? `Не удалось загрузить: ${failed.join(', ')}. Проверь файлы и обнови страницу.`
-      : `Загрузка карты… ${loadedCount}/${mapParts.length}`;
+    mapStatus.hidden = loadedCount === mapParts.length || failed.length > 0;
+    mapStatus.setAttribute('aria-label', `Загрузка карты: ${loadedCount} из ${mapParts.length}`);
+    $('map-error').hidden = failed.length === 0;
+    $('map-error').textContent = failed.length ? 'Не удалось загрузить карту. Обнови страницу.' : '';
+    if (failed.length) console.error('Map parts could not load:', failed);
   }
   updateMapStatus();
   mapParts.forEach((src, index) => {
